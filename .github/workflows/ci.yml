@@ -7,41 +7,39 @@ concurrency:
 on:
   push:
     branches:
-      - 'main'
+      - main
+      - master
     tags:
-      - 'v*'
+      - v*
   pull_request:
   workflow_dispatch:
     inputs:
       debug_enabled:
-        description: 'To run with tmate enter "debug_enabled"'
+        description: To run with tmate enter "debug_enabled"
         required: false
-        default: "false"
+        default: 'false'
 
 permissions:
   contents: read # to fetch code (actions/checkout)
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.platforms.outputs.matrix }}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Create matrix
+      - name: Create matrix
         id: platforms
         run: |
           echo matrix=$(docker buildx bake binary-cross --print | jq -cr '.target."binary-cross".platforms') >> $GITHUB_OUTPUT
-      -
-        name: Show matrix
+      - name: Show matrix
         run: |
           echo ${{ steps.platforms.outputs.matrix }}
 
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -50,19 +48,16 @@ jobs:
           - validate-headers
           - validate-docs
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Run
+      - name: Run
         run: |
           make ${{ matrix.target }}
 
   binary:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - prepare
     strategy:
@@ -70,24 +65,19 @@ jobs:
       matrix:
         platform: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Prepare
+      - name: Prepare
         run: |
           platform=${MATRIX_PLATFORM}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
         env:
           MATRIX_PLATFORM: ${{ matrix.platform }}
-      -
-        name: Set up QEMU
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Build
+      - name: Build
         uses: docker/bake-action@v6
         with:
           source: .
@@ -98,8 +88,7 @@ jobs:
             *.platform=${{ matrix.platform }}
             *.cache-from=type=gha,scope=binary-${{ env.PLATFORM_PAIR }}
             *.cache-to=type=gha,scope=binary-${{ env.PLATFORM_PAIR }},mode=max
-      -
-        name: Rename provenance and sbom
+      - name: Rename provenance and sbom
         working-directory: ./bin/release
         run: |
           binname=$(find . -name 'docker-compose-*')
@@ -107,12 +96,10 @@ jobs:
           mv "provenance.json" "${filename}.provenance.json"
           mv "sbom-binary.spdx.json" "${filename}.sbom.json"
           find . -name 'sbom*.json' -exec rm {} \;
-      -
-        name: List artifacts
+      - name: List artifacts
         run: |
           tree -nh ./bin/release
-      -
-        name: Upload artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: compose-${{ env.PLATFORM_PAIR }}
@@ -120,34 +107,30 @@ jobs:
           if-no-files-found: error
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Test
+      - name: Test
         uses: docker/bake-action@v6
         with:
           targets: test
           set: |
             *.cache-from=type=gha,scope=test
             *.cache-to=type=gha,scope=test
-      -
-        name: Gather coverage data
+      - name: Gather coverage data
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data-unit
           path: bin/coverage/unit/
           if-no-files-found: error
-      - 
-        name: Unit Test Summary
+      - name: Unit Test Summary
         uses: test-summary/action@v2
         with:
-          paths: bin/coverage/unit/report.xml       
+          paths: bin/coverage/unit/report.xml
         if: always()
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -189,7 +172,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           check-latest: true
           cache: true
 
@@ -247,22 +230,19 @@ jobs:
     permissions:
       contents: write # to create a release (ncipollo/release-action)
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - binary
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Download artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: compose-*
           path: ./bin/release
           merge-multiple: true
-      -
-        name: Create checksums
+      - name: Create checksums
         working-directory: ./bin/release
         run: |
           find . -type f -print0 | sort -z | xargs -r0 shasum -a 256 -b | sed 's# \*\./# *#' > $RUNNER_TEMP/checksums.txt
@@ -273,16 +253,13 @@ jobs:
               echo "$sum $file" > ${file#\*}.sha256
             fi
           done
-      -
-        name: List artifacts
+      - name: List artifacts
         run: |
           tree -nh ./bin/release
-      -
-        name: Check artifacts
+      - name: Check artifacts
         run: |
           find bin/release -type f -exec file -e ascii -- {} +
-      -
-        name: GitHub Release
+      - name: GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@58ae73b360456532aafd58ee170c045abbeaee37 # v1.10.0
         with:

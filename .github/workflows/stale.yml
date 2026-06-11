@@ -1,4 +1,4 @@
-name: 'Close stale issues'
+name: Close stale issues
 
 # Default to 'contents: read', which grants actions to read commits.
 #
@@ -10,11 +10,10 @@ permissions:
   contents: read
 
 on:
-  schedule:
-    - cron: '0 0 * * 0,3' # at midnight UTC every Sunday and Wednesday
+  workflow_dispatch:
 jobs:
   stale:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
       pull-requests: write
@@ -28,6 +27,5 @@ jobs:
             for your contributions.
           days-before-issue-stale: 150 # marks stale after 5 months
           days-before-issue-close: 30 # closes 1 month after being marked with no action
-          stale-issue-label: "stale"
-          exempt-issue-labels: "kind/feature,kind/enhancement"
-          
+          stale-issue-label: stale
+          exempt-issue-labels: kind/feature,kind/enhancement
