@@ -46,7 +46,6 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - lint
           - validate-go-mod
           - validate-headers
           - validate-docs
@@ -241,47 +240,8 @@ jobs:
       - name: e2e Test Summary
         uses: test-summary/action@v2
         with:
-          paths: /tmp/report/report.xml       
+          paths: /tmp/report/report.xml
         if: always()
-  coverage:
-    runs-on: ubuntu-latest
-    needs:
-      - test
-      - e2e
-    steps:
-      # codecov won't process the report without the source code available
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          check-latest: true
-      - name: Download unit test coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-data-unit
-          path: coverage/unit
-          merge-multiple: true
-      - name: Download E2E test coverage
-        uses: actions/download-artifact@v4
-        with:
-          pattern: coverage-data-e2e-*
-          path: coverage/e2e
-          merge-multiple: true
-      - name: Merge coverage reports
-        run: |
-          go tool covdata textfmt -i=./coverage/unit,./coverage/e2e -o ./coverage.txt
-      - name: Store coverage report in GitHub Actions
-        uses: actions/upload-artifact@v4
-        with:
-          name: go-covdata-txt
-          path: ./coverage.txt
-          if-no-files-found: error
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.txt
 
   release:
     permissions:

@@ -30,12 +30,10 @@ import (
 	"sync"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/containerd/errdefs"
-	"github.com/docker/cli/cli-plugins/manager"
+	"github.com/docker/cli/cli-plugins/metadata"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/compose/v2/pkg/progress"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 type JsonMessage struct {
@@ -160,14 +158,40 @@ func (s *composeService) getPluginBinaryPath(provider string) (path string, err 
 	if provider == "compose" {
 		return "", errors.New("'compose' is not a valid provider type")
 	}
-	plugin, err := manager.GetPlugin(provider, s.dockerCli, &cobra.Command{})
-	if err == nil {
-		path = plugin.Path
+	// Resolve the provider plugin binary ourselves instead of going through
+	// docker/cli's manager.GetPlugin: on Windows its plugin-discovery searches
+	// the world-writable %PROGRAMDATA%\Docker\cli-plugins directory, which lets
+	// a low-privileged user plant a binary that runs with the victim's
+	// privileges (CVE-2025-15558). We mirror docker/cli's search order but omit
+	// that legacy system path, matching docker/cli commit
+	// 13759330b1f7e7cb0d67047ea42c5482548ba7fa.
+	var extraDirs []string
+	if cfg := s.dockerCli.ConfigFile(); cfg != nil {
+		extraDirs = cfg.CLIPluginsExtraDirs
 	}
-	if errdefs.IsNotFound(err) {
-		path, err = exec.LookPath(executable(provider))
+	if path = findPluginBinary(provider, extraDirs); path != "" {
+		return path, nil
 	}
-	return path, err
+	return exec.LookPath(executable(provider))
+}
+
+// findPluginBinary looks up the "docker-<provider>" CLI plugin binary across the
+// same directories docker/cli would search — additional dirs configured through
+// the CLI config, the per-user "cli-plugins" directory, then the platform
+// systemPluginDirs — except the insecure %PROGRAMDATA%\Docker\cli-plugins system
+// path on Windows. It returns an empty string when no candidate is found.
+func findPluginBinary(provider string, extraDirs []string) string {
+	name := metadata.NamePrefix + executable(provider)
+	dirs := append([]string{}, extraDirs...)
+	dirs = append(dirs, filepath.Join(config.Dir(), "cli-plugins"))
+	dirs = append(dirs, systemPluginDirs...)
+	for _, dir := range dirs {
+		candidate := filepath.Join(dir, name)
+		if fi, err := os.Stat(candidate); err == nil && fi.Mode().IsRegular() {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func (s *composeService) setupPluginCommand(ctx context.Context, project *types.Project, service types.ServiceConfig, path, command string) (*exec.Cmd, error) {

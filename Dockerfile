@@ -108,7 +108,7 @@ RUN --mount=type=bind,target=. \
     mkdir -p /tmp/coverage && \
     rm -rf /tmp/report && \
     mkdir -p /tmp/report && \
-    go run gotest.tools/gotestsum@latest --format testname --junitfile "/tmp/report/report.xml" -- -tags "$BUILD_TAGS" -v -cover -covermode=atomic $(go list  $(TAGS) ./... | grep -vE 'e2e') -args -test.gocoverdir="/tmp/coverage" && \
+    go run gotest.tools/gotestsum@v1.12.1 --format testname --junitfile "/tmp/report/report.xml" -- -tags "$BUILD_TAGS" -v -cover -covermode=atomic $(go list  $(TAGS) ./... | grep -vE 'e2e') -args -test.gocoverdir="/tmp/coverage" && \
     go tool covdata percent -i=/tmp/coverage
 
 FROM scratch AS test-coverage

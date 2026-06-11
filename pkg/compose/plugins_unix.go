@@ -1,4 +1,4 @@
-//go:build windows
+//go:build !windows
 
 /*
    Copyright 2020 Docker Compose CLI authors
@@ -18,20 +18,11 @@
 
 package compose
 
-import (
-	"os"
-	"path/filepath"
-)
-
-func executable(s string) string {
-	return s + ".exe"
-}
-
-// systemPluginDirs are the Windows system-wide locations searched for CLI
-// plugins. The legacy %PROGRAMDATA%\Docker\cli-plugins path is deliberately
-// omitted: it is world-writable and enabled CVE-2025-15558. Only the
-// %PROGRAMFILES%\Docker\cli-plugins path is kept, matching docker/cli commit
-// 13759330b1f7e7cb0d67047ea42c5482548ba7fa.
+// systemPluginDirs are the non-Windows system-wide locations searched for CLI
+// plugins, matching docker/cli's defaultSystemPluginDirs.
 var systemPluginDirs = []string{
-	filepath.Join(os.Getenv("ProgramFiles"), "Docker", "cli-plugins"),
+	"/usr/local/lib/docker/cli-plugins",
+	"/usr/local/libexec/docker/cli-plugins",
+	"/usr/lib/docker/cli-plugins",
+	"/usr/libexec/docker/cli-plugins",
 }

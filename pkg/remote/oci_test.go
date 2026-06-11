@@ -87,7 +87,7 @@ func TestValidatePathInBase(t *testing.T) {
 		{
 			name:       "current directory reference",
 			unsafePath: "./file.yaml",
-			wantErr:    false, // ./ resolves to base dir
+			wantErr:    true, // path separators are rejected outright
 		},
 		{
 			name:       "mixed separators",
@@ -107,7 +107,7 @@ func TestValidatePathInBase(t *testing.T) {
 		{
 			name:       "single parent then back",
 			unsafePath: "../compose/file.yaml",
-			wantErr:    false, // Resolves back to base dir, which is fine
+			wantErr:    true, // path separators are rejected outright
 		},
 	}
 
